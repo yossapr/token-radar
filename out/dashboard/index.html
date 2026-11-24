@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar: pre-token protocols ranked by implied value</title>
+<meta name="description" content="Every protocol that records no token, priced from its own TVL and the record of its peers, with the band the fit actually holds and the steps to farm it.">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a class="skip" href="#view">Skip to the radar</a>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <h1>Token Radar</h1>
+      <p class="tagline">Every protocol that records no token, priced from its own record and its peers'.</p>
+    </div>
+  </div>
+  <dl class="stamp" id="stamp">
+    <div><dt>Snapshot</dt><dd id="stamp-date">-</dd></div>
+    <div><dt>Model</dt><dd id="stamp-model">-</dd></div>
+    <div><dt>Universe</dt><dd id="stamp-universe">-</dd></div>
+  </dl>
+</header>
+<nav class="tabs" aria-label="Views">
+  <a href="#board" data-tab="board">Board</a>
+  <a href="#detail" data-tab="detail">Protocol detail</a>
+  <a href="#filtered" data-tab="filtered">Filtered view</a>
+  <a href="#method" data-tab="method">Method</a>
+</nav>
+<main id="view" tabindex="-1" aria-busy="true">
+  <noscript>The radar is a static page, but it needs JavaScript to sort and filter its rows.</noscript>
+</main>
+<footer class="foot">
+  <p>An implied value is the entry's own claim, never make.fun's. It is not a forecast of a token, and a protocol that records no token may still have one.</p>
+  <p id="foot-source">Source: the sealed snapshot. No network, no cookies, no tracking.</p>
+</footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
