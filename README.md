@@ -1,8 +1,8 @@
 # Token Radar
 
-[![competition](https://img.shields.io/badge/make.fun-token--radar--01-2f6f4f)](https://make.fun/bounty/token-radar-01)
-[![entry](https://img.shields.io/badge/entry-github%20repo-2f6f4f)](https://github.com/yossapr/token-radar)
-[![model](https://img.shields.io/badge/model-radar--1.0-2f6f4f)](lib/model.ts)
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/yossapr/token-radar/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/yossapr/token-radar/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
 A radar for token launches: every protocol in the snapshot that records no token, priced from
 its own TVL and its tokenised peers, ranked by the implied value of the token it has not issued,
