@@ -155,7 +155,7 @@
       '<select id="chain" aria-label="Chain"><option value="">All chains</option>' + o.chains + '</select>' +
       '<span class="spacer"></span><span class="count">' + list.length + ' of ' + rows.length + ' rows \u00b7 ' + fmtUsd(list.reduce(function (s, r) { return s + r.implied_value_usd; }, 0)) + ' implied in this view</span></div>' +
       tableHtml(list, true) +
-      '<p class="axis-note">Rank is the model\u2019s claim, not the array\u2019s order: click a column to re-sort, a row to open its record. The band is the P25\u2013P75 of the fit\u2019s own residuals; it is wide because the fit is honest about how little a TVL buys.</p>';
+      '<p class="axis-note">Rank is the model\u2019s claim, not the array\u2019s order: click a column to re-sort, a row to open its record. The band is the P25\u2013P75 of the fit\u2019s own residuals; it is wide because the fit is honest about how little a TVL buys. The verdict is a separate question \u2014 a $5,000 farm in a $10B pool earns almost nothing \u2014 so the biggest implied values usually read SKIP: rank says what the token would be worth, the verdict says whether a small position in it pays.</p>';
   }
 
   // ------------------------------------------------------------ detail
