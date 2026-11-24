@@ -1,0 +1,15 @@
+import { parseSnapshot, isPreToken, derivativeReason, EARLY_FLOOR_USD } from '../lib/model.ts';
+import { readFileSync } from 'node:fs';
+const s = parseSnapshot(readFileSync(process.argv[2], 'utf8'));
+const pre = s.protocols.filter(isPreToken);
+const der = pre.filter(p => derivativeReason(p));
+const derOn = der.filter(p => s.watchlist.includes(p.slug));
+const clean = pre.filter(p => !derivativeReason(p));
+const above = clean.filter(p => p.tvl_usd >= EARLY_FLOOR_USD);
+const below = clean.filter(p => p.tvl_usd < EARLY_FLOOR_USD);
+const wl = s.protocols.filter(p => s.watchlist.includes(p.slug));
+console.log(JSON.stringify({total:s.protocols.length, pre:pre.length, tokenised:s.protocols.length-pre.length, derivatives:der.length, derOnWatch:derOn.length, clean:clean.length, above:above.length, below:below.length, watchlist:wl.length, wlPre:wl.filter(p=>isPreToken(p)).length}));
+const cats = new Map(); for (const p of s.protocols) cats.set(p.category ?? 'none', (cats.get(p.category ?? 'none')??0)+1);
+console.log(JSON.stringify([...cats.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12)));
+const chains = new Map(); for (const p of s.protocols) for (const c of p.chains) chains.set(c,(chains.get(c)??0)+1);
+console.log(JSON.stringify([...chains.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10)));

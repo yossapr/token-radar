@@ -13,7 +13,7 @@
   var rows = R.rows.slice();
   var bySlug = {};
   rows.forEach(function (r) { bySlug[r.slug] = r; });
-  var state = { filter: 'all', category: '', chain: '', q: '', sort: 'rank' };
+  var state = { filter: 'all', category: '', chain: '', verdict: '', band: '', q: '', sort: 'rank' };
 
   // ------------------------------------------------------------ formatting
   function fmtUsd(n) {
@@ -74,6 +74,40 @@
       '</section>';
   }
 
+  // ------------------------------------------------------------ coverage
+  var BANDS = [
+    { key: '', label: 'Any TVL' },
+    { key: 'lt10', label: 'Under $10M (early)', test: function (r) { return r.tvl_usd < 1e7; } },
+    { key: '10-50', label: '$10M to $50M', test: function (r) { return r.tvl_usd >= 1e7 && r.tvl_usd < 5e7; } },
+    { key: '50-250', label: '$50M to $250M', test: function (r) { return r.tvl_usd >= 5e7 && r.tvl_usd < 2.5e8; } },
+    { key: '250-1000', label: '$250M to $1B', test: function (r) { return r.tvl_usd >= 2.5e8 && r.tvl_usd < 1e9; } },
+    { key: 'gt1000', label: '$1B and up', test: function (r) { return r.tvl_usd >= 1e9; } }
+  ];
+  function bandTest(key) {
+    for (var i = 0; i < BANDS.length; i++) if (BANDS[i].key === key) return BANDS[i].test || null;
+    return null;
+  }
+  function coverageBar() {
+    var total = R.counts.snapshot;
+    var token = R.counts.tokenised;
+    var ranked = R.counts.ranked;
+    var aside = R.counts.set_aside;
+    function pctOf(n) { return (n / total * 100).toFixed(2); }
+    return '<section class="coverage panel" aria-label="What the snapshot holds">' +
+      '<div class="cov-head"><h3>The whole snapshot, accounted for<span>' + total + ' protocols, nothing dropped without a reason</span></h3>' +
+      '<div class="count">' + ranked + ' pre-token rows ranked</div></div>' +
+      '<div class="covbar" role="img" aria-label="' + total + ' protocols: ' + token + ' record a token, ' + ranked + ' record none and are ranked, ' + aside + ' are derivatives of a tokenised parent">' +
+        '<span class="seg token" style="width:' + pctOf(token) + '%" title="' + token + ' already record a token"></span>' +
+        '<span class="seg ranked" style="width:' + pctOf(ranked) + '%" title="' + ranked + ' pre-token rows ranked"></span>' +
+        '<span class="seg aside" style="width:' + pctOf(aside) + '%" title="' + aside + ' derivatives of a tokenised parent"></span>' +
+      '</div>' +
+      '<div class="cov-legend">' +
+        '<div><i class="sw token"></i><b>' + token + '</b> already record a token <span>priced as peers, not ranked</span></div>' +
+        '<div><i class="sw ranked"></i><b>' + ranked + '</b> record no token, every one ranked <span>' + (ranked - R.counts.early) + ' above the $10M floor, ' + R.counts.early + ' early below it</span></div>' +
+        '<div><i class="sw aside"></i><b>' + aside + '</b> set aside as derivatives <span>wrapped or staked child of a token that trades: named in the data with its reason</span></div>' +
+      '</div></section>';
+  }
+
   // ------------------------------------------------------------ board
   function options() {
     var cats = {}, chains = {};
@@ -90,11 +124,15 @@
 
   function filteredRows() {
     var q = state.q.toLowerCase();
+    var early = function (r) { return r.tvl_usd < R.meta.floor_usd; };
+    var band = bandTest(state.band);
     return rows.filter(function (r) {
       if (state.filter === 'watch' && !r.watch) return false;
-      if (state.filter === 'early' && r.watch) return false;
+      if (state.filter === 'early' && !early(r)) return false;
       if (state.filter === 'farm' && r.verdict === 'SKIP') return false;
       if (state.filter === 'skip' && r.verdict !== 'SKIP') return false;
+      if (state.verdict && r.verdict !== state.verdict) return false;
+      if (band && !band(r)) return false;
       if (state.category && r.category !== state.category) return false;
       if (state.chain && r.chains.indexOf(state.chain) < 0) return false;
       if (q && (r.name + ' ' + (r.category || '') + ' ' + r.chains.join(' ')).toLowerCase().indexOf(q) < 0) return false;
@@ -109,12 +147,18 @@
     });
   }
 
+  function pills(r) {
+    var out = r.watch ? '<span class="pill wl">watchlist</span>' : '';
+    if (r.tvl_usd < R.meta.floor_usd) out += '<span class="pill early">early</span>';
+    return out;
+  }
+
   function rowHtml(r) {
     var t = tierOf(r);
     var change = r.change_7d === null ? '<span class="muted">n/a</span>' : '<span class="' + (r.change_7d >= 0 ? 'up' : 'down') + '">' + fmtPct(r.change_7d) + '</span>';
     return '<tr data-slug="' + esc(r.slug) + '">' +
       '<td class="rank">' + r.rank + '</td>' +
-      '<td class="name"><div class="n">' + esc(r.name) + '<span class="pill ' + (r.watch ? 'wl">watchlist' : 'early">early') + '</span></div>' +
+      '<td class="name"><div class="n">' + esc(r.name) + pills(r) + '</div>' +
         '<div class="c">' + esc(r.category || 'uncategorised') + ' \u00b7 ' + esc(r.chains.slice(0, 3).join(', ')) + (r.chains.length > 3 ? ' +' + (r.chains.length - 3) : '') + '</div></td>' +
       '<td class="tvl">' + fmtUsd(r.tvl_usd) + '</td>' +
       '<td class="num">' + change + '</td>' +
@@ -123,6 +167,7 @@
       '<td class="band"><div class="top"><span class="implied">' + fmtUsd(r.implied_value_usd) + '</span><span class="range">' + fmtUsd(r.band_low_usd) + '\u2013' + fmtUsd(r.band_high_usd) + '</span></div>' + bandBar(r) + '</td>' +
       '<td class="verdict"><span class="tag ' + t + '">' + r.verdict + '</span>' + esc(money0(r.net_of_fees_usd_lo) + '\u2013' + money0(r.net_of_fees_usd_hi)) + '<div class="reason">net on a $10,000 plan</div></td>' +
       '<td class="farm">' + fmtUsd(r.farm_cost_usd) + '<br><span class="reason">' + r.hours_per_week + ' h/wk</span></td>' +
+      '<td class="open"><a href="#detail/' + esc(r.slug) + '" aria-label="Open ' + esc(r.name) + '">open</a></td>' +
       '</tr>';
   }
 
@@ -135,7 +180,7 @@
       '<th class="num' + (sortable && state.sort === 'age' ? ' sorted' : '') + '" data-sort="age">Age</th>' +
       '<th class="' + (sortable && state.sort === 'rate' ? 'sorted' : '') + '" data-sort="rate">Peer token rate</th>' +
       '<th class="' + (sortable && state.sort === 'value' ? 'sorted' : '') + '" data-sort="value">Implied value if launched (P25\u2013P75)</th>' +
-      '<th>Verdict</th><th class="num">Farm cost</th></tr></thead>';
+      '<th>Verdict</th><th class="num">Farm cost</th><th></th></tr></thead>';
     return '<div class="table-wrap"><table>' + head + '<tbody>' + list.map(rowHtml).join('') + '</tbody></table></div>';
   }
 
@@ -148,11 +193,19 @@
     var chipsHtml = chips.map(function (c) {
       return '<button class="chip" data-filter="' + c[0] + '" aria-pressed="' + (state.filter === c[0]) + '">' + c[1] + '<b>' + c[2] + '</b></button>';
     }).join('');
-    return kpis() +
+    var verdictSel = ['', 'CONVEX', 'MARGINAL', 'SKIP'].map(function (v) {
+      return '<option value="' + v + '"' + (state.verdict === v ? ' selected' : '') + '>' + (v === '' ? 'Any verdict' : v) + '</option>';
+    }).join('');
+    var bandSel = BANDS.map(function (b) {
+      return '<option value="' + b.key + '"' + (state.band === b.key ? ' selected' : '') + '>' + b.label + '</option>';
+    }).join('');
+    return coverageBar() + kpis() +
       '<div class="controls">' + chipsHtml +
       '<input type="search" id="q" placeholder="Name, chain or category" value="' + esc(state.q) + '" aria-label="Search the board">' +
       '<select id="cat" aria-label="Category"><option value="">All categories</option>' + o.cats + '</select>' +
       '<select id="chain" aria-label="Chain"><option value="">All chains</option>' + o.chains + '</select>' +
+      '<select id="verdict" aria-label="Verdict">' + verdictSel + '</select>' +
+      '<select id="band" aria-label="TVL band">' + bandSel + '</select>' +
       '<span class="spacer"></span><span class="count">' + list.length + ' of ' + rows.length + ' rows \u00b7 ' + fmtUsd(list.reduce(function (s, r) { return s + r.implied_value_usd; }, 0)) + ' implied in this view</span></div>' +
       tableHtml(list, true) +
       '<p class="axis-note">Rank is the model\u2019s claim, not the array\u2019s order: click a column to re-sort, a row to open its record. The band is the P25\u2013P75 of the fit\u2019s own residuals; it is wide because the fit is honest about how little a TVL buys. The verdict is a separate question \u2014 a $5,000 farm in a $10B pool earns almost nothing \u2014 so the biggest implied values usually read SKIP: rank says what the token would be worth, the verdict says whether a small position in it pays.</p>';
@@ -168,6 +221,7 @@
 
   function renderDetail(slug) {
     var r = bySlug[slug] || rows[0];
+    var t = tierOf(r);
     var lo = Math.log10(Math.max(1, r.band_low_usd));
     var hi = Math.log10(Math.max(1, r.band_high_usd));
     var mid = Math.log10(Math.max(1, r.implied_value_usd));
@@ -180,11 +234,12 @@
     }).join('');
     return '<a class="back" href="#board">\u2190 back to the board</a>' +
       '<div class="detail-head"><div><h2>' + esc(r.name) + '</h2><p class="sub">' + esc(r.category || 'uncategorised') + ' \u00b7 ' + esc(r.chains.join(', ')) + ' \u00b7 recorded for ' + fmtAge(r.age_days) + ' without a token \u00b7 rank ' + r.rank + ' of ' + rows.length + '</p></div>' +
-      '<div class="count">' + (r.watch ? 'on the watchlist' : 'early: below the watchlist floor') + '</div></div>' +
+      '<div class="count"><span class="tag ' + t + '" style="margin-right:8px">' + r.verdict + '</span>' + (r.watch ? 'on the watchlist' : r.tvl_usd < R.meta.floor_usd ? 'early: below the $10M floor' : 'above the $10M floor') + '</div></div>' +
       '<div class="grid2"><div class="panel"><h3>What it could be worth<span>the fit, not a promise</span></h3>' +
         '<div class="big"><span class="n">' + fmtUsd(r.implied_value_usd) + '</span><span class="u">implied value, P25\u2013P75 ' + fmtUsd(r.band_low_usd) + ' to ' + fmtUsd(r.band_high_usd) + '</span></div>' +
         '<div class="bandbar"><span class="mid" style="left:0;right:0"></span><span class="mean" style="left:' + left.toFixed(1) + '%"></span><span class="lbl" style="left:0">' + fmtUsd(r.band_low_usd) + '</span><span class="lbl" style="right:0">' + fmtUsd(r.band_high_usd) + '</span></div>' +
         '<div class="axis-note">The band is the P25\u2013P75 of the fit\u2019s own residuals on the log scale: half the protocols like this one land inside it, half do not.</div>' +
+        '<p class="callout"><b class="' + t + '">' + r.verdict + '</b> ' + esc(r.verdict_line) + '</p>' +
         '<div class="split">' +
           '<div><div class="k">If its token launched</div><div class="v">' + fmtUsd(r.value_if_launched_usd) + '</div><div class="s">' + r.multiple.toFixed(2) + '\u00d7 its ' + fmtUsd(r.tvl_usd) + ' TVL</div></div>' +
           '<div><div class="k">Peer token rate</div><div class="v">' + pct(r.peer_token_rate) + '</div><div class="s">of protocols tracked this long record a token</div></div>' +
@@ -200,22 +255,26 @@
 
   // ------------------------------------------------------------ filtered
   function renderFiltered() {
-    var early = rows.filter(function (r) { return !r.watch; });
     var watch = rows.filter(function (r) { return r.watch; });
-    var list = early.slice().sort(function (a, b) { return b.peer_token_rate - a.peer_token_rate || a.rank - b.rank; }).slice(0, 40);
-    var medianTvl = list.map(function (r) { return r.tvl_usd; }).sort(function (a, b) { return a - b; })[Math.floor(list.length / 2)];
-    var setAside = R.set_aside.slice(0, 10).map(function (s) {
+    var order = { CONVEX: 0, MARGINAL: 1, SKIP: 2 };
+    var list = watch.slice().sort(function (a, b) { return (order[a.verdict] - order[b.verdict]) || a.rank - b.rank; });
+    var counts = {};
+    var cats = {};
+    watch.forEach(function (r) { counts[r.verdict] = (counts[r.verdict] || 0) + 1; cats[r.category || 'uncategorised'] = (cats[r.category || 'uncategorised'] || 0) + 1; });
+    var topCats = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; }).slice(0, 6);
+    var medianTvl = watch.map(function (r) { return r.tvl_usd; }).sort(function (a, b) { return a - b; })[Math.floor(watch.length / 2)];
+    var setAside = R.set_aside.slice(0, 12).map(function (s) {
       return '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.category || 'uncategorised') + '</td><td class="num">' + fmtUsd(s.tvl_usd) + '</td><td class="reason">' + esc(s.reason) + '</td></tr>';
     }).join('');
-    return '<div class="filtered-head"><div><h2>Filtered view: early tier</h2>' +
-      '<p>Every ranked protocol below the $50M watchlist floor, sorted by the peer token rate rather than by value: not the biggest implied numbers, the ones where a token is most likely to record at all. The watchlist holds ' + watch.length + ' of the ' + rows.length + ' rows; the other ' + early.length + ' are the early tier this view isolates.</p></div>' +
-      '<div class="count">' + early.length + ' early \u00b7 median TVL in view ' + fmtUsd(medianTvl || 0) + '</div></div>' +
-      '<div class="controls"><button class="chip" aria-pressed="true">Early tier<b>' + early.length + '</b></button>' +
-      '<button class="chip" aria-pressed="false" disabled>Below the $50M floor</button>' +
-      '<span class="spacer"></span><span class="count">sorted by peer token rate \u00b7 top ' + list.length + ' of ' + early.length + '</span></div>' +
+    return '<div class="filtered-head"><div><h2>Filtered view: the watchlist, verdict first</h2>' +
+      '<p>The 40 protocols make.fun\u2019s watchlist names, sorted by what the plan says rather than by rank: ' + (counts.CONVEX || 0) + ' convex, ' + (counts.MARGINAL || 0) + ' marginal, ' + (counts.SKIP || 0) + ' skip. This is the view to read when the question is whether the fees are worth it, not what the token would be worth. Every one opens its own record, with the same eight-peer table and the same six costed steps as the board.</p></div>' +
+      '<div class="count">' + watch.length + ' watchlist \u00b7 median TVL ' + fmtUsd(medianTvl || 0) + '</div></div>' +
+      '<div class="controls"><button class="chip" aria-pressed="true">Watchlist<b>' + watch.length + '</b></button>' +
+      '<button class="chip" aria-pressed="false" disabled>Filter: watchlist, all categories</button>' +
+      '<span class="spacer"></span><span class="count">' + topCats.map(function (c) { return c + ' ' + cats[c]; }).join(' \u00b7 ') + '</span></div>' +
       tableHtml(list, false) +
       '<section class="setaside panel"><h3>Set aside, not ranked<span>' + R.counts.set_aside + ' derivatives of tokens that already trade</span></h3>' +
-      '<p style="margin-top:-2px">A wrapped, staked or bridged child of a protocol whose token trades is not a launch candidate, so the board leaves it out and says why. These are the ten largest by TVL; the rest are in the data the page reads.</p>' +
+      '<p style="margin-top:-2px">A wrapped, staked or bridged child of a protocol whose token trades is not a launch candidate, so the board leaves it out and says why: these are the twelve largest by TVL, and all ' + R.counts.set_aside + ' are in the data the page reads, each with its reason.</p>' +
       '<table class="comps"><thead><tr><th>Protocol</th><th>Category</th><th class="num">TVL</th><th>Why it is set aside</th></tr></thead><tbody>' + setAside + '</tbody></table></section>';
   }
 
@@ -246,7 +305,7 @@
         '<div class="formula">p(token) = 1 / (1 + e^(\u2212(<b>' + o.c0.toFixed(2) + '</b> + <b>' + o.c1.toFixed(2) + '</b> \u00d7 log\u2081\u2080 age + <b>' + o.c2.toFixed(2) + '</b> \u00d7 log\u2081\u2080 TVL)))</div>' +
         '<p>A logistic fit on ' + o.n + ' protocols the snapshot dates, ' + pct(o.base_rate) + ' of which record a token. It scores AUC ' + o.auc.toFixed(2) + ': older protocols record tokens more often, and TVL adds almost nothing. It is a peer rate, not a forecast that a token will be issued, and the rules are explicit that this entry does not make one.</p></div>' +
         '<div class="panel" style="margin-top:12px"><h3>The dataset, and what is set aside<span>one frozen snapshot</span></h3>' +
-        '<div class="kv"><dt>Snapshot</dt><dd>' + R.meta.as_of + '</dd><dt>Protocols</dt><dd>' + R.report.training.snapshot + '</dd><dt>Record a token</dt><dd>' + R.report.training.tokenised + '</dd><dt>Record none</dt><dd>' + R.report.training.pre_token + '</dd><dt>Watchlist</dt><dd>' + R.report.training.watchlist + '</dd><dt>Ranked here</dt><dd>' + R.counts.ranked + '</dd><dt>Set aside as derivatives</dt><dd>' + R.counts.set_aside + '</dd></div>' +
+        '<div class="kv"><dt>Snapshot</dt><dd>' + R.meta.as_of + '</dd><dt>Protocols</dt><dd>' + R.counts.snapshot + '</dd><dt>Record a token</dt><dd>' + R.counts.tokenised + '</dd><dt>Record none</dt><dd>' + R.report.training.pre_token + '</dd><dt>Ranked here</dt><dd>' + R.counts.ranked + ' (' + R.counts.early + ' early, below the $10M floor)</dd><dt>Set aside as derivatives</dt><dd>' + R.counts.set_aside + '</dd><dt>Watchlist</dt><dd>' + R.counts.watchlist + ' of ' + R.report.training.watchlist + '</dd></div>' +
         '<ul class="note-list" style="margin-top:10px"><li>No protocol name is special-cased: the same two fits score every row.</li><li>No network at run time: the snapshot is the only input, and the page reads one script.</li><li>A protocol that records no token may still have one; the board says what DefiLlama records, not what is true.</li><li>An implied value is the entry\u2019s own claim. It is not investment advice and not a promise of a launch.</li></ul></div>' +
       '</div></div>';
   }
@@ -284,6 +343,10 @@
       if (cat) cat.value = state.category;
       var chain = document.getElementById('chain');
       if (chain) chain.value = state.chain;
+      var verdict = document.getElementById('verdict');
+      if (verdict) verdict.value = state.verdict;
+      var band = document.getElementById('band');
+      if (band) band.value = state.band;
     }
     view.setAttribute('aria-busy', 'false');
     window.scrollTo(0, 0);
@@ -303,6 +366,8 @@
   view.addEventListener('change', function (e) {
     if (e.target.id === 'cat') { state.category = e.target.value; route(); }
     if (e.target.id === 'chain') { state.chain = e.target.value; route(); }
+    if (e.target.id === 'verdict') { state.verdict = e.target.value; route(); }
+    if (e.target.id === 'band') { state.band = e.target.value; route(); }
   });
   window.addEventListener('hashchange', route);
   route();

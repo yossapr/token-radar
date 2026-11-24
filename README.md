@@ -20,14 +20,18 @@ network calls, no runtime dependencies, no hardcoded protocol names.
   method panel prints that test rather than hiding it.
 * **Token odds.** A logistic fit for how often a protocol of a given age and TVL records a token
   (AUC 0.67). It is a peer rate, not a forecast, and the page says so.
-* **Board.** 268 ranked rows: all 40 watchlist protocols plus 228 early ones, ranked by implied
-  value, with the P25-P75 band, the peer rate, the verdict and the farm cost on every row.
+* **Board.** 340 ranked rows: every pre-token protocol in the snapshot that is not a derivative,
+  the 40 watchlist protocols first, 72 of the rows early (below the $10M floor). Each carries the
+  P25-P75 band, the peer rate, the verdict and the farm cost, and opens its own record.
+* **Coverage.** The board accounts for all 758 snapshot protocols: 128 already record a token and
+  are priced as peers, 340 record none and are ranked, and 290 are derivatives of a tokenised
+  parent, listed with the reason. Filters: verdict, category, chain, TVL band, watchlist.
 * **Verdict.** `net = (P25 / TVL) * peer rate * 0.995 - 0.00025` per dollar of TVL: CONVEX at
   0.8% or more, MARGINAL at 0.3%, SKIP below. The formula is printed in the method panel.
 * **Farm plans.** Six steps per row, each with a cost and a time (gas, capital, hours).
 * **Detail view.** Eight nearest priced peers, the band on a log bar, and the plan.
-* **Filtered view.** The early tier below the watchlist floor, plus the 244 derivatives of
-  already-tokenised protocols that the board deliberately sets aside, with the reason on each.
+* **Filtered view.** The watchlist cut, sorted by verdict rather than by rank, plus the 290
+  derivatives of already-tokenised protocols that the board deliberately sets aside.
 * **Method view.** The fit, the term tests, the leave-one-out and walk-forward misses, the band
   coverage, the odds fit and the verdict formula.
 

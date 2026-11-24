@@ -289,7 +289,7 @@ export interface RadarData {
   rows: BoardRow[];
   live: Array<{ slug: string; name: string; category: string | null; tvl_usd: number; mcap_usd: number; multiple: number }>;
   set_aside: Array<{ slug: string; name: string; category: string | null; tvl_usd: number; reason: string }>;
-  counts: { ranked: number; watchlist: number; early: number; set_aside: number; live: number };
+  counts: { ranked: number; watchlist: number; early: number; set_aside: number; live: number; tokenised: number; snapshot: number };
 }
 // ---------------------------------------------------------------- the fit
 
@@ -555,10 +555,9 @@ export function buildRadar(snapshot: Snapshot): { board: BoardRow[]; radar: Rada
     const onWatchlist = watchlist.has(p.slug);
     const variant = onWatchlist ? null : derivativeReason(p);
     if (variant !== null) {
-      if (p.tvl_usd >= EARLY_FLOOR_USD) setAside.push({ slug: p.slug, name: p.name, category: p.category, tvl_usd: p.tvl_usd, reason: variant });
+      setAside.push({ slug: p.slug, name: p.name, category: p.category, tvl_usd: p.tvl_usd, reason: variant });
       continue;
     }
-    if (!onWatchlist && p.tvl_usd < EARLY_FLOOR_USD) continue;
     const v = valueFor(p, age);
     const implied = Math.max(1, Math.round(v.value));
     const low = Math.max(1, Math.round(v.low));
@@ -630,9 +629,11 @@ export function buildRadar(snapshot: Snapshot): { board: BoardRow[]; radar: Rada
     counts: {
       ranked: rows.length,
       watchlist: rows.filter((r) => watchlist.has(r.slug)).length,
-      early: rows.filter((r) => !watchlist.has(r.slug)).length,
+      early: rows.filter((r) => r.tvl_usd < EARLY_FLOOR_USD).length,
       set_aside: setAside.length,
       live: live.length,
+      tokenised: tokenised.length,
+      snapshot: snapshot.protocols.length,
     },
   };
   return { board: rows, radar };
